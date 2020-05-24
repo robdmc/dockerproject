@@ -18,6 +18,7 @@ def get_version():
 
 
 install_requires = [
+    'click',
 ]
 
 tests_require = [
@@ -52,4 +53,10 @@ setup(
     tests_require=tests_require,
     extras_require=extras_require,
     zip_safe=False,
+    entry_points={
+        'console_scripts': [
+            'dp.config = dockerproject.config:main',
+        ],
+    }
+
 )
