@@ -18,8 +18,12 @@ class Config:
         return os.path.join(self.BLOB_DIR, 'config.json')
 
     @property
+    def config_file_path(self):
+        return os.path.dirname(self.config_file_name)
+
+    @property
     def blob(self):
-        if os.path.isfile(self.config_file):
+        if os.path.isfile(self.config_file_name):
             with open(self.config_file_name) as buff:
                 blob = json.load(buff)
         else:
@@ -29,6 +33,7 @@ class Config:
         return blob.copy()
 
     def save_blob(self, blob):
+        os.makedirs(self.config_file_path, exist_ok=True)
         with open(self.config_file_name, 'w') as buff:
             json.dump(blob, buff)
 

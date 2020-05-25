@@ -1,3 +1,3 @@
 #! /usr/bin/env bash
 
-docker build -t robdmc/easyenv .
+docker build -t {image_name} .
