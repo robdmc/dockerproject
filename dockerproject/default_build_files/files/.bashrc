@@ -59,7 +59,7 @@ unset __conda_setup
      export OS_TYPE="mac"
  else
      # This indicates running on some type of linux
-     export OS_TYPE="linux"
+     export OS_TYPE="container"
  fi
 
  # Disable shell meanings of ctrl-s and ctrl-q
