@@ -2,3 +2,4 @@ include README.md
 include CONTRIBUTORS.txt
 include LICENSE
 prune */tests
+graft dockerproject/default_build_files
