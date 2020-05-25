@@ -54,16 +54,16 @@ def move_files(target_path):
     shutil.copytree(source_path, target_path)
 
     build_script = os.path.join(target_path, 'build.sh')
+    push_script = os.path.join(target_path, 'push.sh')
 
-    with open(build_script) as buff:
-        contents = buff.read()
-    
     blob = Config().blob
 
-    contents = contents.format(image_name=blob['image_name'])
-
-    with open(build_script, 'w') as buff:
-        contents = buff.write(contents)
+    for file_name in [build_script, push_script]:
+        with open(file_name) as buff:
+            contents = buff.read()
+        contents = contents.format(image_name=blob['image_name'])
+        with open(file_name, 'w') as buff:
+            contents = buff.write(contents)
 
 
 

@@ -27,8 +27,7 @@ RUN apt-get update && \
   apt-get install -y tzdata && \
   dpkg-reconfigure --frontend noninteractive tzdata && \
   apt-get install -y vim curl tree wget bzip2 ca-certificates git nano ssh && \
-  locale-gen en_US.UTF-8 && \
-  apt-get install postgresql-client
+  locale-gen en_US.UTF-8
 
 
 # This directory will get overridden by volume mount
