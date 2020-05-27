@@ -1,6 +1,6 @@
 # Run this to create: conda env create --force -f environment.yml
 # To update with any changes:  conda env update -f environment.yml,
-name: dockerify_default
+name: {env_name}
 channels:
     - conda-forge
 dependencies:

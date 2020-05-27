@@ -3,7 +3,8 @@ import subprocess
 import contextlib
 import sys
 
-# subprocess.check_call()
+import click
+
 
 class EnvBuilder:
     REQUIRED_PROJECT_FILES = [
@@ -26,7 +27,7 @@ class EnvBuilder:
     @contextlib.contextmanager
     def working_script(self, commands):
         self.script_stack_index += 1
-        file_name = os.path.join(self.project_path, f'_dockerify_working_script{self.script_stack_index}.sh')
+        file_name = os.path.join(self.project_path, f'_dockerize_working_script{self.script_stack_index}.sh')
         with open(file_name, 'w') as buff:
             buff.write('\n'.join(commands))
         try:
@@ -38,10 +39,10 @@ class EnvBuilder:
     def rebuild_volumes(self):
         print('========================================= (Re)building volumes', file=sys.stderr)
         commands = [
-            'docker volume rm dockerify_opt 2>/dev/null || true',
-            'docker volume create dockerify_opt',
-            'docker volume rm dockerify_ssh 2>/dev/null || true',
-            'docker volume create dockerify_ssh',
+            'docker volume rm dockerize_opt 2>/dev/null || true',
+            'docker volume create dockerize_opt',
+            'docker volume rm dockerize_ssh 2>/dev/null || true',
+            'docker volume create dockerize_ssh',
         ]
 
         with self.working_script(commands) as script_file:
@@ -86,18 +87,39 @@ class EnvBuilder:
             with self.working_script(host_commands) as host_script_file:
                 subprocess.check_call(['bash', host_script_file])
 
-        self.make_activation_hook()
 
-    def make_activation_hook(self):
-        hook_path = os.path.join(self.project_path, 'bash_hooks')
-        hook_file = os.path.join(hook_path, 'activate_env.sh')
-        os.makedirs(hook_path, exist_ok=True)
-        with open(hook_file, 'w') as buff:
-            buff.write('conda activate dockerify_default 2>/dev/null || true')
+def run(directory, with_build):
+    directory = os.path.realpath(os.path.expanduser(directory))
+    activate_script = os.path.join(directory, 'bash_hooks', 'activeate_env.sh')
+    if not os.path.isfile(activate_script):
+        msg = 'No activation script found.  Did you initialize your project?'
+        print(msg, sys.sdterr)
+        exit(1)
+
+    builder = EnvBuilder(directory)
+    if with_build:
+        builder.install_conda()
+    builder.update_env()
+
+@click.command()
+@click.option('-d', '--directory', required=True, help='The initialized project directory')
+def build(directory):
+    run(directory, with_build=True)
+
+@click.command()
+@click.option('-d', '--directory', required=True, help='The initialized project directory')
+def update(directory):
+    run(directory, with_build=False)
 
 
-# def main():
-#     print('doing it')
+
+
+
+
+
+
+
+
 
 # # Install conda into the container
 # docker-compose -f $compose_file down || true

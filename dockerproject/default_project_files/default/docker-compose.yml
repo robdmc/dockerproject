@@ -2,26 +2,26 @@
 version: '3.4'
 
 volumes:
-    dockerify_opt:
+    dockerize_opt:
         external:
-            name: dockerify_opt
-    dockerify_ssh:
+            name: dockerize_opt
+    dockerize_ssh:
         external:
-            name: dockerify_ssh
+            name: dockerize_ssh
 
-x-dockerify-common:
+x-dockerize-common:
     common:
-        &dockerify-common
-        image: robdmc/dockerify:latest
+        &dockerize-common
+        image: {image_name}:latest
         privileged: true
         volumes:
-           - dockerify_opt:/opt:delegated
-           - dockerify_ssh:/root/.ssh:delegated
+           - dockerize_opt:/opt:delegated
+           - dockerize_ssh:/root/.ssh:delegated
            - ~:/host:delegated
            - .:/project:delegated
 services:
     shell:
-        <<: *dockerify-common
+        <<: *dockerize-common
         command: /bin/bash
         ports:
             - "5555:5555"
@@ -30,7 +30,7 @@ services:
 
 
     notebook:
-        <<: *dockerify-common
+        <<: *dockerize-common
         command: bash -c 'source ~/.bashrc && jupyter notebook --allow-root --ip 0.0.0.0 --port 9999 --NotebookApp.iopub_data_rate_limit=10000000000'
         ports:
             - "9999:9999"

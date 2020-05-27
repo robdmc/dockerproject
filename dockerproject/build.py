@@ -63,7 +63,7 @@ def move_files(target_path):
             contents = buff.read()
         contents = contents.format(image_name=blob['image_name'])
         with open(file_name, 'w') as buff:
-            contents = buff.write(contents)
+            buff.write(contents)
 
 
 

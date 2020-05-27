@@ -7,40 +7,44 @@ import sys
 from dockerproject.config import Config
 
 
-def move_files(target_path):
+def move_files(target_path, env_name):
     target_path = os.path.realpath(os.path.expanduser(target_path))
-    if os.path.isdir(target_path):
-        print(f'\nThe directory exists\n\n{target_path}\n\nYou must specify a non-existent directory.', file=sys.stderr)
-        exit(1)
+    hook_path = os.path.join(target_path, 'bash_hooks')
+    activation_script = os.path.join(hook_path, 'activate_env.sh')
+    os.makedirs(hook_path, exist_ok=True)
+    with open(activation_script, 'w') as buff:
+        buff.write(f'conda activate {env_name} 2>/dev/null || true')
 
     file_dir = os.path.realpath(__file__)
     base_dir = os.path.dirname(file_dir)
-    source_path = os.path.join(base_dir, 'default_build_files')
-    shutil.copytree(source_path, target_path)
-
-    build_script = os.path.join(target_path, 'build.sh')
-    push_script = os.path.join(target_path, 'push.sh')
+    source_path = os.path.join(base_dir, 'default_project_files', 'default')
+    base_file_names = [
+        'environment.yml',
+        'docker-compose.yml'
+    ]
 
     blob = Config().blob
+    for base_file_name in base_file_names:
+        source = os.path.join(source_path, base_file_name)
+        target = os.path.join(target_path, base_file_name)
+        shutil.copy(source, target)
 
-    for file_name in [build_script, push_script]:
-        with open(file_name) as buff:
+        with open(target) as buff:
             contents = buff.read()
-        contents = contents.format(image_name=blob['image_name'])
-        with open(file_name, 'w') as buff:
-            contents = buff.write(contents)
+        contents = contents.format(image_name=blob['image_name'], env_name=env_name)
+        with open(target, 'w') as buff:
+            buff.write(contents)
 
 
 
 
 @click.command()
-@click.option(
-    '-d', '--directory', required=True,
-    help='Prepare all files for building a project')
-def main(directory):
-    # move_files(directory)
-    print('doin it')
-
+@click.option('-d', '--directory', required=True, help='Prepare all files for building a project')
+@click.option('-n', '--name', help='The env name (defaults to directory name')
+def main(directory, name):
+    if name is None:
+        name = os.path.basename(directory)
+    move_files(directory, name)
 
 if __name__ == '__main__':
     main()

@@ -55,9 +55,11 @@ setup(
     zip_safe=False,
     entry_points={
         'console_scripts': [
-            'dp.config = dockerproject.config:main',
-            'dp.make_build_files = dockerproject.build:main',
-            'dp.initialize = dockerproject.initialize:main',
+            'pd.config = dockerproject.config:main',
+            'pd.image = dockerproject.build:main',
+            'pd.initialize = dockerproject.initialize:main',
+            'pd.build = dockerproject.update_env:build',
+            'pd.update = dockerproject.update_env:update',
         ],
     }
 
