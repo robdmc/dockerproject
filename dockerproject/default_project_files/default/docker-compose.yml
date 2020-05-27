@@ -1,0 +1,36 @@
+# The version of docker compose to use
+version: '3.4'
+
+volumes:
+    dockerify_opt:
+        external:
+            name: dockerify_opt
+    dockerify_ssh:
+        external:
+            name: dockerify_ssh
+
+x-dockerify-common:
+    common:
+        &dockerify-common
+        image: robdmc/dockerify:latest
+        privileged: true
+        volumes:
+           - dockerify_opt:/opt:delegated
+           - dockerify_ssh:/root/.ssh:delegated
+           - ~:/host:delegated
+           - .:/project:delegated
+services:
+    shell:
+        <<: *dockerify-common
+        command: /bin/bash
+        ports:
+            - "5555:5555"
+            - "8000:8000"
+            - "8888:8888"
+
+
+    notebook:
+        <<: *dockerify-common
+        command: bash -c 'source ~/.bashrc && jupyter notebook --allow-root --ip 0.0.0.0 --port 9999 --NotebookApp.iopub_data_rate_limit=10000000000'
+        ports:
+            - "9999:9999"

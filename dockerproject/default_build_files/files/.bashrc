@@ -22,6 +22,13 @@ unset __conda_setup
     git branch --no-color 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/( \1 )/'
  }
 
+ # Function to source a file if it exists
+ function source_if_exists () { 
+     if [ -f "$1" ]; then
+        . "$1"
+     fi
+ }
+
  # Function to source all files in a bash_hooks directory
  function source_bash_hooks () { 
      set +o history
