@@ -36,7 +36,7 @@ class EnvBuilder:
             self.script_stack_index -= 1
 
     def rebuild_volumes(self):
-        print('(Re)building volumens', file=sys.stderr)
+        print('========================================= (Re)building volumes', file=sys.stderr)
         commands = [
             'docker volume rm dockerify_opt 2>/dev/null || true',
             'docker volume create dockerify_opt',
@@ -49,6 +49,7 @@ class EnvBuilder:
 
     def install_conda(self):
         self.rebuild_volumes()
+        print('========================================= Installing Conda', file=sys.stderr)
         url = 'https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh' 
         container_commands = [
             f'wget --quiet {url} -O ~/miniconda.sh && \\',
@@ -69,7 +70,7 @@ class EnvBuilder:
                 subprocess.check_call(['bash', host_script_file])
 
     def update_env(self):
-        print('Building Env', file=sys.stderr)
+        print('========================================= Building Env', file=sys.stderr)
         container_commands = [
             '/opt/conda/bin/conda update -y -n base -c defaults conda',
             '/opt/conda/bin/conda env update  --file /project/environment.yml',
@@ -95,7 +96,8 @@ class EnvBuilder:
             buff.write('conda activate dockerify_default 2>/dev/null || true')
 
 
-
+# def main():
+#     print('doing it')
 
 # # Install conda into the container
 # docker-compose -f $compose_file down || true
@@ -106,8 +108,8 @@ class EnvBuilder:
 # docker-compose -f $compose_file down || true
 # docker-compose -f $compose_file run --rm shell ssh-keygen -q -t rsa -N '' -f /root/.ssh/id_rsa
 
-if __name__ == '__main__':
-    builder = EnvBuilder('/tmp/myproj')
-    builder.install_conda()
-    builder.update_env()
-    # builder.make_activation_hook()
+# if __name__ == '__main__':
+#     builder = EnvBuilder('/tmp/myproj')
+#     builder.install_conda()
+#     builder.update_env()
+#     # builder.make_activation_hook()

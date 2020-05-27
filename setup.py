@@ -57,6 +57,7 @@ setup(
         'console_scripts': [
             'dp.config = dockerproject.config:main',
             'dp.make_build_files = dockerproject.build:main',
+            'dp.initialize = dockerproject.initialize:main',
         ],
     }
 
