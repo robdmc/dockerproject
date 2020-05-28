@@ -1,3 +1,4 @@
+import glob
 import os
 import click
 import shutil
@@ -5,6 +6,8 @@ import stat
 import textwrap
 import contextlib
 import subprocess
+
+import yaml
 
 from dockerproject.config import Config
 
@@ -44,8 +47,6 @@ class Initializer:
         os.makedirs(self.container_file_path, exist_ok=True)
 
     def _render_single_template(self, source, target, context):
-        if os.path.isfile(target):
-            return
         shutil.copy(source, target)
 
         with open(target) as buff:
@@ -54,13 +55,24 @@ class Initializer:
         with open(target, 'w') as buff:
             buff.write(contents)
 
+    def _get_env_name_from_file(self):
+        with open(self.env_target) as buff:
+            obj = yaml.load(buff, Loader=yaml.FullLoader)
+        env_name = obj['name']
+        return env_name
+
     def render_template_files(self):
         context = dict(
             image_name=Config().blob['image_name'],
             env_name=self.env_name
         )
-        self._render_single_template(self.env_source, self.env_target, context)
-        self._render_single_template(self.compose_source, self.compose_target, context)
+        if os.path.isfile(self.env_target):
+            self.env_name = self._get_env_name_from_file()
+        else:
+            self._render_single_template(self.env_source, self.env_target, context)
+
+        if not os.path.isfile(self.compose_target):
+            self._render_single_template(self.compose_source, self.compose_target, context)
 
     def _make_script(self, commands, file_name, executable=False):
         with open(file_name, 'w') as buff:
@@ -74,17 +86,6 @@ class Initializer:
         commands = [f'conda activate {self.env_name}'] 
         file_name = os.path.join(self.hook_path, 'bash_hooks.sh')
         self._make_script(commands, file_name, executable=True)
-
-    # def make_rebuild_volumes_script(self):
-    #     commands = [
-    #         '#! /usr/bin/env bash',
-    #         'docker volume rm pydockerize_opt 2>/dev/null || true',
-    #         'docker volume create pydockerize_opt',
-    #         'docker volume rm pydockerize_ssh 2>/dev/null || true',
-    #         'docker volume create pydockerize_ssh',
-    #     ]
-    #     file_name = os.path.join(self.project_dir, 'pd.build_volumes')
-    #     self._make_script(commands, file_name, executable=True)
 
     def _make_compose_script(self, compose_script, target_script, with_volume_rebuild=False):
         name_on_host = os.path.join(self.container_file_path, compose_script)
@@ -139,18 +140,43 @@ class Initializer:
         file_name = os.path.join(self.container_file_path, 'update_environment.sh')
         self._make_script(commands, file_name)
 
-    
+    def make_single_service_script(self, template, context):
+        script = template.format(**context)
+        service = context['service']
+        file_name = os.path.join(self.project_dir, f'pd.run_{service}')
+        with open(file_name, 'w') as buff:
+            buff.write(script)
+        st = os.stat(file_name)
+        os.chmod(file_name, st.st_mode | stat.S_IEXEC)
+        
+    def make_service_scripts(self):
+        glob_str = os.path.join(self.project_dir, 'pd.run_*')
+        files = glob.glob(glob_str)
+        for ff in files:
+            os.unlink(ff)
+        
+        # cmd = f'rm {glob}'
+        # subprocess.run(cmd, stderr=subprocess.PIPE)
+        with open(self.service_script_source) as buff:
+            template = buff.read()
 
+        cmd = f'docker-compose -f {self.compose_target} config --services'
+        proc = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
+        services = proc.communicate()[0].decode('utf-8').split('\n')
+        for service in [s for s in services if s]:
+            context = dict(service=service)
+            self.make_single_service_script(template, context)
+    
     def initialize(self):
         # Sets up the required directory structure
         self.make_required_directories()
 
+        # Renders default files if they are missing
+        self.render_template_files()
+
         # Make the bash_hook that will activate conda env on 
         # .bashrc run in 
         self.make_bash_hooks()
-
-        # Renders default files if they are missing
-        self.render_template_files()
 
         # Create scripts for building env
         # self.make_rebuild_volumes_script()
@@ -161,37 +187,19 @@ class Initializer:
         self.make_update_env_script()
         self.make_update_env_for_container()
 
-    def make_single_service_script(self, template, context):
-        script = template.format(**context)
-        service = context['service']
-        file_name = os.path.join(self.project_dir, f'p.run_{service}')
-        with open(file_name, 'w') as buff:
-            buff.write(script)
-        st = os.stat(file_name)
-        os.chmod(file_name, st.st_mode | stat.S_IEXEC)
-        
-    def make_service_scripts(self):
-        with open(self.service_script_source) as buff:
-            template = buff.read()
-
-        cmd = f'docker-compose -f {self.compose_target} config --services'
-        proc = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
-        services = proc.communicate()[0].decode('utf-8').split('\n')
-        for service in [s for s in services if s]:
-            context = dict(service=service)
-            self.make_single_service_script(template, context)
+        # Create scripts for running services
+        self.make_service_scripts()
 
 @click.command()
 @click.option('-d', '--directory', required=True, help='Prepare all files for building a project')
-@click.option('-n', '--name', help='The env name (defaults to directory name')
+@click.option('-n', '--name', help='The env name (defaults to directory name. Overriden by name in env file')
 def main(directory, name):
     project_dir = os.path.realpath(os.path.expanduser(directory))
     if name is None:
         name = os.path.basename(project_dir)
 
     init = Initializer(directory, env_name=name)
-    # init.initialize()
-    init.make_service_scripts()
+    init.initialize()
 
 
 if __name__ == '__main__':
