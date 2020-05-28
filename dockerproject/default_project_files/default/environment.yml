@@ -1,9 +1,19 @@
 # Run this to create: conda env create --force -f environment.yml
 # To update with any changes:  conda env update -f environment.yml,
+#
+# This default environment contains the kitchen sink.  You will probably
+# want to remove packages that you won't be using in your project
+
+# None of the packages below are pinned to version numbers. This is
+# so that fresh environment builds can always provide the latest versions
+# of the packages.
+# You may want to apply pinned versions to make your environment more stable.
+
 name: {env_name}
 channels:
     - conda-forge
 dependencies:
+    # These are packages installed using conda
     - python=3.7
     - astropy
     - dask
@@ -22,6 +32,7 @@ dependencies:
     - sympy
     - xarray
 
+    # These packages are installed with pip
     - pip:
         - altair
         - arrow

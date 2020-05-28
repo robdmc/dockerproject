@@ -3,3 +3,4 @@ include CONTRIBUTORS.txt
 include LICENSE
 prune */tests
 graft dockerproject/default_build_files
+graft dockerproject/default_project_files
