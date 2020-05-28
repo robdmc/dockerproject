@@ -26,6 +26,8 @@ class EnvBuilder:
 
     @contextlib.contextmanager
     def working_script(self, commands):
+        if not hasattr(self, 'script_stack_index'):
+            self.script_stack_index = 0
         self.script_stack_index += 1
         file_name = os.path.join(self.project_path, f'_pydockerize_working_script{self.script_stack_index}.sh')
         with open(file_name, 'w') as buff:

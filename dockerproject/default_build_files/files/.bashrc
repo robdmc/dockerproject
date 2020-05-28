@@ -32,8 +32,8 @@ unset __conda_setup
  # Function to source all files in a bash_hooks directory
  function source_bash_hooks () { 
      set +o history
-     if compgen -G "/project/bash_hooks/*.sh" > /dev/null; then
-         for hook in `ls /project/bash_hooks/*.sh`
+     if compgen -G "/project/_pydockerize_/bash_hooks/*.sh" > /dev/null; then
+         for hook in `ls /project/_pydockerize_/bash_hooks/*.sh`
          do
              source_if_exists $hook
          done

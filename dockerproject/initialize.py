@@ -1,46 +1,197 @@
 import os
 import click
 import shutil
+import stat
+import textwrap
+import contextlib
+import subprocess
 
 from dockerproject.config import Config
 
 
-def move_files(target_path, env_name):
-    hook_path = os.path.join(target_path, 'bash_hooks')
-    activation_script = os.path.join(hook_path, 'activate_env.sh')
-    os.makedirs(hook_path, exist_ok=True)
-    with open(activation_script, 'w') as buff:
-        buff.write(f'conda activate {env_name} 2>/dev/null || true')
+class Initializer:
+    def __init__(self, project_dir, env_name=None):
+        self.project_dir = os.path.realpath(os.path.expanduser(project_dir))
+        if env_name is None: 
+            self.env_name = os.path.basename(self.project_dir)
+        else:
+            self.env_name = env_name
 
-    file_dir = os.path.realpath(__file__)
-    base_dir = os.path.dirname(file_dir)
-    source_path = os.path.join(base_dir, 'default_project_files', 'default')
-    base_file_names = [
-        'environment.yml',
-        'docker-compose.yml'
-    ]
+        self._set_path_attributes()
 
-    blob = Config().blob
-    for base_file_name in base_file_names:
-        source = os.path.join(source_path, base_file_name)
-        target = os.path.join(target_path, base_file_name)
+    def _set_path_attributes(self):
+        self.subdir = os.path.join(self.project_dir, '_pydockerize_')
+        self.hook_path = os.path.join(self.subdir, 'bash_hooks')
+        self.container_file_path = os.path.join(self.subdir, 'env_build_scripts')
+
+        # Set up information for the source of default files
+        file_dir = os.path.realpath(__file__)
+        base_dir = os.path.dirname(file_dir)
+        source_path = os.path.join(base_dir, 'default_project_files', 'default')
+
+        self.env_source = os.path.join(source_path, 'environment.yml')
+        self.env_target = os.path.join(self.project_dir, os.path.basename(self.env_source))
+
+        self.compose_source = os.path.join(source_path, 'docker-compose.yml')
+        self.compose_target = os.path.join(self.project_dir, os.path.basename(self.compose_source))
+
+        self.service_script_source = os.path.join(
+            base_dir, 'default_project_files', 'service_template.sh')
+
+    def make_required_directories(self):
+        # Make sure the directories exist
+        os.makedirs(self.hook_path, exist_ok=True)
+        os.makedirs(self.container_file_path, exist_ok=True)
+
+    def _render_single_template(self, source, target, context):
+        if os.path.isfile(target):
+            return
         shutil.copy(source, target)
 
         with open(target) as buff:
             contents = buff.read()
-        contents = contents.format(image_name=blob['image_name'], env_name=env_name)
+        contents = contents.format(**context)
         with open(target, 'w') as buff:
             buff.write(contents)
 
+    def render_template_files(self):
+        context = dict(
+            image_name=Config().blob['image_name'],
+            env_name=self.env_name
+        )
+        self._render_single_template(self.env_source, self.env_target, context)
+        self._render_single_template(self.compose_source, self.compose_target, context)
+
+    def _make_script(self, commands, file_name, executable=False):
+        with open(file_name, 'w') as buff:
+            buff.write('\n'.join(commands) + '\n')
+
+        if executable:
+            st = os.stat(file_name)
+            os.chmod(file_name, st.st_mode | stat.S_IEXEC)
+
+    def make_bash_hooks(self):
+        commands = [f'conda activate {self.env_name}'] 
+        file_name = os.path.join(self.hook_path, 'bash_hooks.sh')
+        self._make_script(commands, file_name, executable=True)
+
+    # def make_rebuild_volumes_script(self):
+    #     commands = [
+    #         '#! /usr/bin/env bash',
+    #         'docker volume rm pydockerize_opt 2>/dev/null || true',
+    #         'docker volume create pydockerize_opt',
+    #         'docker volume rm pydockerize_ssh 2>/dev/null || true',
+    #         'docker volume create pydockerize_ssh',
+    #     ]
+    #     file_name = os.path.join(self.project_dir, 'pd.build_volumes')
+    #     self._make_script(commands, file_name, executable=True)
+
+    def _make_compose_script(self, compose_script, target_script, with_volume_rebuild=False):
+        name_on_host = os.path.join(self.container_file_path, compose_script)
+        name_on_container = os.path.join('/project', os.path.relpath(name_on_host, self.project_dir))
+        compose_file = os.path.join(self.project_dir, 'docker-compose.yml')
+
+        if with_volume_rebuild:
+            commands = [
+                '#! /usr/bin/env bash',
+                'docker volume rm pydockerize_opt 2>/dev/null || true',
+                'docker volume create pydockerize_opt',
+                'docker volume rm pydockerize_ssh 2>/dev/null || true',
+                'docker volume create pydockerize_ssh',
+            ]
+        else:
+            commands = ['#! /usr/bin/env bash']
+
+        commands.extend([
+            f'docker-compose -f {compose_file} down 2>/dev/null || true',
+            f'docker-compose -f {compose_file} run --rm shell bash {name_on_container}',
+        ])
+
+        file_name = os.path.join(self.project_dir, target_script)
+        self._make_script(commands, file_name, executable=True)
+
+    def make_build_env_script(self):
+        self._make_compose_script('build_environment.sh', 'pd.build_env', with_volume_rebuild=True)
+
+    def make_update_env_script(self):
+        self._make_compose_script('update_environment.sh', 'pd.update_env')
+
+    def make_build_env_for_container(self):
+        url = 'https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh' 
+        commands = [
+            'rm -rf /opt/conda 2>/dev/null || true',
+            f'wget --quiet {url} -O ~/miniconda.sh && \\',
+            '/bin/bash ~/miniconda.sh -b -p /opt/conda && \\',
+            'rm ~/miniconda.sh && \\',
+            'ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \\',
+            '/opt/conda/bin/conda update -y -n base -c defaults conda && \\',
+            '/opt/conda/bin/conda env update  --file /project/environment.yml',
+        ]
+        file_name = os.path.join(self.container_file_path, 'build_environment.sh')
+        self._make_script(commands, file_name)
+
+    def make_update_env_for_container(self):
+        commands = [
+            '/opt/conda/bin/conda update -n base -c defaults conda',
+            '/opt/conda/bin/conda env update  --file /project/environment.yml',
+        ]
+
+        file_name = os.path.join(self.container_file_path, 'update_environment.sh')
+        self._make_script(commands, file_name)
+
+    
+
+    def initialize(self):
+        # Sets up the required directory structure
+        self.make_required_directories()
+
+        # Make the bash_hook that will activate conda env on 
+        # .bashrc run in 
+        self.make_bash_hooks()
+
+        # Renders default files if they are missing
+        self.render_template_files()
+
+        # Create scripts for building env
+        # self.make_rebuild_volumes_script()
+        self.make_build_env_script()
+        self.make_build_env_for_container()
+
+        # Create scrips for updating env
+        self.make_update_env_script()
+        self.make_update_env_for_container()
+
+    def make_single_service_script(self, template, context):
+        script = template.format(**context)
+        service = context['service']
+        file_name = os.path.join(self.project_dir, f'p.run_{service}')
+        with open(file_name, 'w') as buff:
+            buff.write(script)
+        st = os.stat(file_name)
+        os.chmod(file_name, st.st_mode | stat.S_IEXEC)
+        
+    def make_service_scripts(self):
+        with open(self.service_script_source) as buff:
+            template = buff.read()
+
+        cmd = f'docker-compose -f {self.compose_target} config --services'
+        proc = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
+        services = proc.communicate()[0].decode('utf-8').split('\n')
+        for service in [s for s in services if s]:
+            context = dict(service=service)
+            self.make_single_service_script(template, context)
 
 @click.command()
 @click.option('-d', '--directory', required=True, help='Prepare all files for building a project')
 @click.option('-n', '--name', help='The env name (defaults to directory name')
 def main(directory, name):
-    directory = os.path.realpath(os.path.expanduser(directory))
+    project_dir = os.path.realpath(os.path.expanduser(directory))
     if name is None:
-        name = os.path.basename(directory)
-    move_files(directory, name)
+        name = os.path.basename(project_dir)
+
+    init = Initializer(directory, env_name=name)
+    # init.initialize()
+    init.make_service_scripts()
 
 
 if __name__ == '__main__':
