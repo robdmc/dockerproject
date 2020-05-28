@@ -27,7 +27,7 @@ class EnvBuilder:
     @contextlib.contextmanager
     def working_script(self, commands):
         self.script_stack_index += 1
-        file_name = os.path.join(self.project_path, f'_dockerize_working_script{self.script_stack_index}.sh')
+        file_name = os.path.join(self.project_path, f'_pydockerize_working_script{self.script_stack_index}.sh')
         with open(file_name, 'w') as buff:
             buff.write('\n'.join(commands))
         try:
@@ -39,10 +39,10 @@ class EnvBuilder:
     def rebuild_volumes(self):
         print('========================================= (Re)building volumes', file=sys.stderr)
         commands = [
-            'docker volume rm dockerize_opt 2>/dev/null || true',
-            'docker volume create dockerize_opt',
-            'docker volume rm dockerize_ssh 2>/dev/null || true',
-            'docker volume create dockerize_ssh',
+            'docker volume rm pydockerize_opt 2>/dev/null || true',
+            'docker volume create pydockerize_opt',
+            'docker volume rm pydockerize_ssh 2>/dev/null || true',
+            'docker volume create pydockerize_ssh',
         ]
 
         with self.working_script(commands) as script_file:
@@ -90,10 +90,10 @@ class EnvBuilder:
 
 def run(directory, with_build):
     directory = os.path.realpath(os.path.expanduser(directory))
-    activate_script = os.path.join(directory, 'bash_hooks', 'activeate_env.sh')
+    activate_script = os.path.join(directory, 'bash_hooks', 'activate_env.sh')
     if not os.path.isfile(activate_script):
         msg = 'No activation script found.  Did you initialize your project?'
-        print(msg, sys.sdterr)
+        print(msg, sys.stderr)
         exit(1)
 
     builder = EnvBuilder(directory)

@@ -4,8 +4,8 @@ import click
 
 
 class Config:
-    BLOB_DIR = os.path.realpath(os.path.expanduser('~/.dockerproject'))
-    DEFAULT_IMAGE_NAME = 'robdmc/dockerproject'
+    BLOB_DIR = os.path.realpath(os.path.expanduser('~/.pydockerize'))
+    DEFAULT_IMAGE_NAME = 'robdmc/pydockerize'
 
     @property
     def default_blob(self):
@@ -46,7 +46,7 @@ class Config:
 @click.command()
 @click.option('--image-name', help='The name of the docker image to use for creating containers')
 def main(image_name):
-    print(f'image is {image_name}')
+    print('This needs to be written')
 
 
 if __name__ == '__main__':

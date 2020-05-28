@@ -2,26 +2,26 @@
 version: '3.4'
 
 volumes:
-    dockerize_opt:
+    pydockerize_opt:
         external:
-            name: dockerize_opt
-    dockerize_ssh:
+            name: pydockerize_opt
+    pydockerize_ssh:
         external:
-            name: dockerize_ssh
+            name: pydockerize_ssh
 
-x-dockerize-common:
+x-pydockerize-common:
     common:
-        &dockerize-common
+        &pydockerize-common
         image: {image_name}:latest
         privileged: true
         volumes:
-           - dockerize_opt:/opt:delegated
-           - dockerize_ssh:/root/.ssh:delegated
+           - pydockerize_opt:/opt:delegated
+           - pydockerize_ssh:/root/.ssh:delegated
            - ~:/host:delegated
            - .:/project:delegated
 services:
     shell:
-        <<: *dockerize-common
+        <<: *pydockerize-common
         command: /bin/bash
         ports:
             - "5555:5555"
@@ -30,7 +30,7 @@ services:
 
 
     notebook:
-        <<: *dockerize-common
+        <<: *pydockerize-common
         command: bash -c 'source ~/.bashrc && jupyter notebook --allow-root --ip 0.0.0.0 --port 9999 --NotebookApp.iopub_data_rate_limit=10000000000'
         ports:
             - "9999:9999"

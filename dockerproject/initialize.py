@@ -1,14 +1,11 @@
-import json
 import os
 import click
 import shutil
-import sys
 
 from dockerproject.config import Config
 
 
 def move_files(target_path, env_name):
-    target_path = os.path.realpath(os.path.expanduser(target_path))
     hook_path = os.path.join(target_path, 'bash_hooks')
     activation_script = os.path.join(hook_path, 'activate_env.sh')
     os.makedirs(hook_path, exist_ok=True)
@@ -36,15 +33,15 @@ def move_files(target_path, env_name):
             buff.write(contents)
 
 
-
-
 @click.command()
 @click.option('-d', '--directory', required=True, help='Prepare all files for building a project')
 @click.option('-n', '--name', help='The env name (defaults to directory name')
 def main(directory, name):
+    directory = os.path.realpath(os.path.expanduser(directory))
     if name is None:
         name = os.path.basename(directory)
     move_files(directory, name)
+
 
 if __name__ == '__main__':
     main()
